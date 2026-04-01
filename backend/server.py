@@ -34,6 +34,7 @@ class NewsItemCreate(BaseModel):
     summary: Optional[str] = None
     tags: List[str] = []
     item_type: str = "rss"  # "youtube" or "rss"
+    duration: Optional[str] = None  # Video duration for YouTube items
 
 class NewsItem(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -46,6 +47,7 @@ class NewsItem(BaseModel):
     summary: Optional[str] = None
     tags: List[str] = []
     item_type: str = "rss"
+    duration: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class RefreshResponse(BaseModel):
@@ -141,7 +143,8 @@ async def refresh_youtube_news():
                     published_at=datetime.fromisoformat(video['published_at'].replace('Z', '+00:00')),
                     summary=video.get('summary', ''),
                     tags=video.get('tags', ['Iran']),
-                    item_type='youtube'
+                    item_type='youtube',
+                    duration=video.get('duration', '')
                 )
                 
                 doc = news_obj.model_dump()

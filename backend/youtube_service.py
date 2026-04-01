@@ -53,6 +53,23 @@ def is_iran_related(title: str, description: str) -> bool:
     return any(keyword in text for keyword in IRAN_KEYWORDS)
 
 
+def parse_duration(duration_str: str) -> str:
+    """Convert ISO 8601 duration to human readable format (e.g., PT1H2M3S -> 1:02:03)"""
+    import re
+    match = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', duration_str)
+    if not match:
+        return "0:00"
+    
+    hours = int(match.group(1) or 0)
+    minutes = int(match.group(2) or 0)
+    seconds = int(match.group(3) or 0)
+    
+    if hours > 0:
+        return f"{hours}:{minutes:02d}:{seconds:02d}"
+    else:
+        return f"{minutes}:{seconds:02d}"
+
+
 async def fetch_channel_videos(channel_name: str, channel_info: dict, max_results: int = 15) -> List[Dict]:
     """Fetch latest videos from a YouTube channel using playlistItems API"""
     try:
@@ -68,7 +85,10 @@ async def fetch_channel_videos(channel_name: str, channel_info: dict, max_result
             maxResults=max_results
         ).execute()
         
-        videos = []
+        # Collect video IDs for duration lookup
+        video_ids = []
+        video_items = []
+        
         for item in playlist_response.get('items', []):
             snippet = item['snippet']
             video_id = snippet['resourceId']['videoId']
@@ -81,7 +101,8 @@ async def fetch_channel_videos(channel_name: str, channel_info: dict, max_result
             if pub_date < cutoff_time:
                 continue
             
-            video_data = {
+            video_ids.append(video_id)
+            video_items.append({
                 'video_id': video_id,
                 'title': snippet['title'],
                 'description': snippet.get('description', ''),
@@ -90,11 +111,28 @@ async def fetch_channel_videos(channel_name: str, channel_info: dict, max_result
                 'published_at': published_at,
                 'thumbnail': snippet['thumbnails'].get('high', snippet['thumbnails'].get('default', {})).get('url', ''),
                 'url': f"https://www.youtube.com/watch?v={video_id}"
-            }
-            videos.append(video_data)
+            })
         
-        logger.info(f"Found {len(videos)} recent videos from {channel_name}")
-        return videos
+        # Fetch durations for all videos in one API call
+        if video_ids:
+            videos_response = youtube.videos().list(
+                id=','.join(video_ids),
+                part='contentDetails'
+            ).execute()
+            
+            # Create duration lookup
+            duration_map = {}
+            for video in videos_response.get('items', []):
+                vid_id = video['id']
+                duration_iso = video['contentDetails'].get('duration', 'PT0S')
+                duration_map[vid_id] = parse_duration(duration_iso)
+            
+            # Add duration to video items
+            for item in video_items:
+                item['duration'] = duration_map.get(item['video_id'], '0:00')
+        
+        logger.info(f"Found {len(video_items)} recent videos from {channel_name}")
+        return video_items
         
     except HttpError as e:
         logger.error(f"YouTube API error for channel {channel_name}: {e}")
@@ -207,7 +245,8 @@ async def fetch_all_iran_news() -> List[Dict]:
                 'tags': ai_result['tags'],
                 'item_type': 'youtube',
                 'thumbnail': video['thumbnail'],
-                'credibility': ai_result['credibility']
+                'credibility': ai_result['credibility'],
+                'duration': video.get('duration', '')
             })
     
     logger.info(f"Processed {len(processed_videos)} credible videos")

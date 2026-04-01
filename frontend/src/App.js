@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import axios from "axios";
-import { Radar, ArrowUpRight, Loader2, Radio, Youtube, Rss, RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
+import { Radar, ArrowUpRight, Loader2, Radio, Youtube, Rss, RefreshCw, CheckCircle, AlertCircle, Clock } from "lucide-react";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -52,6 +52,12 @@ const NewsCard = ({ item }) => {
               <span className="type-badge">
                 <Rss size={10} />
                 RSS
+              </span>
+            )}
+            {item.duration && item.item_type === 'youtube' && (
+              <span className="duration-badge">
+                <Clock size={10} />
+                {item.duration}
               </span>
             )}
           </div>
