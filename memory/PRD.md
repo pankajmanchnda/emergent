@@ -13,24 +13,27 @@ Build a news digest dashboard app called 'Iran War Monitor' with:
 - No authentication (public dashboard)
 - Basic features only
 - Allow custom tags
+- YouTube integration with: Fox News, ABC News, Think School, Chanakya Dialogues, Firstpost, Al Jazeera, WION, Sky News Australia
 
 ## Architecture
 - **Backend**: FastAPI + MongoDB (Motor async driver)
 - **Frontend**: React + Tailwind CSS
 - **Database**: MongoDB collection `news_items`
+- **Integrations**: YouTube Data API v3, OpenAI GPT-5.2 (via Emergent LLM key)
 
 ## What's Been Implemented (April 2026)
-- ✅ MongoDB `news_items` collection with all required fields + id, created_at
-- ✅ POST /api/news - Creates news items with auto-generated timestamps
-- ✅ GET /api/news - Returns all items sorted newest first
+- ✅ MongoDB `news_items` collection with all required fields
+- ✅ POST /api/news - Creates news items
+- ✅ GET /api/news - Returns all items sorted newest first  
 - ✅ GET /api/news?tag=X - Case-insensitive tag filtering
-- ✅ DELETE /api/news/{id} - Delete functionality
-- ✅ Dark tactical "Control Room" theme with Chivo/IBM Plex Sans/JetBrains Mono fonts
-- ✅ Seamless grid layout (border-collapse effect)
-- ✅ Color-coded tags (War=red, Nuclear=amber, Diplomacy=blue, Iran=green)
-- ✅ RSS/YouTube type badges
-- ✅ Live feed indicator, stats bar
-- ✅ All data-testid attributes for testing
+- ✅ POST /api/news/refresh - Fetches YouTube videos from 9 channels
+- ✅ YouTube Data API integration (playlistItems API)
+- ✅ AI summarization with GPT-5.2 for video analysis
+- ✅ Auto-tagging: Iran, War, Nuclear, Diplomacy, US, Israel, Military, Sanctions
+- ✅ Credibility filtering (removes low-quality/clickbait content)
+- ✅ Dark tactical "Control Room" theme
+- ✅ Refresh Feed button for manual YouTube sync
+- ✅ RSS/YouTube type badges on cards
 
 ## API Endpoints
 | Method | Endpoint | Description |
@@ -38,19 +41,24 @@ Build a news digest dashboard app called 'Iran War Monitor' with:
 | POST | /api/news | Create news item |
 | GET | /api/news | Get all items (sorted newest) |
 | GET | /api/news?tag=X | Filter by tag |
+| POST | /api/news/refresh | Fetch from YouTube channels |
 | DELETE | /api/news/{id} | Delete item |
+
+## YouTube Channels Monitored
+- Fox News, ABC News, Think School, Chanakya Dialogues Hindi
+- Think School Hindi, Firstpost, Al Jazeera English, WION, Sky News Australia
 
 ## Next Tasks / Backlog
 ### P0 (Critical)
-- None - MVP complete
+- None - MVP complete with YouTube integration
 
 ### P1 (High Priority)
+- Automated scheduling (6 AM / 6 PM IST cron jobs)
 - Search functionality
 - Pagination for large datasets
-- Bulk import from RSS/YouTube feeds
 
 ### P2 (Nice to Have)
-- Real-time auto-refresh
-- Admin panel to manage news items
-- RSS feed integration automation
-- Email alerts for specific tags
+- RSS feed integration for non-YouTube sources
+- Email/push notifications for breaking news
+- Admin panel to manage sources
+- Analytics dashboard (trending topics)
