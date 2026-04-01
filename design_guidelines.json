@@ -1,0 +1,105 @@
+{
+  "theme": "dark",
+  "archetype": "Swiss & High-Contrast (Dark Mode)",
+  "concept": "Tactical Control Room / War Monitor",
+  "colors": {
+    "background": "#050505",
+    "surface": "#0A0A0A",
+    "surface_hover": "#141414",
+    "border": "#262626",
+    "text_primary": "#FFFFFF",
+    "text_secondary": "#A3A3A3",
+    "accent": "#FF3300",
+    "tags": {
+      "war": "#FF3300",
+      "nuclear": "#F59E0B",
+      "diplomacy": "#3B82F6",
+      "iran": "#10B981",
+      "default": "#737373"
+    }
+  },
+  "typography": {
+    "fonts": [
+      {
+        "name": "Chivo",
+        "usage": "Headings & Titles",
+        "google_font": true
+      },
+      {
+        "name": "IBM Plex Sans",
+        "usage": "Body Text",
+        "google_font": true
+      },
+      {
+        "name": "JetBrains Mono",
+        "usage": "Metadata, Tags & Timestamps",
+        "google_font": true
+      }
+    ],
+    "sizes": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tighter font-black",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight font-bold",
+      "card_title": "text-lg sm:text-xl leading-snug font-bold tracking-tight text-white group-hover:text-[#FF3300] transition-colors",
+      "body": "text-base leading-relaxed text-[#A3A3A3]",
+      "labels": "text-[10px] uppercase tracking-[0.2em] font-mono",
+      "timestamp": "text-xs font-mono text-[#737373]"
+    }
+  },
+  "layout": {
+    "container": "max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8",
+    "grid": {
+      "description": "The Control Room Grid (Seamless technical borders)",
+      "wrapper_classes": "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 border-t border-l border-[#262626]",
+      "item_classes": "border-b border-r border-[#262626] p-6 flex flex-col justify-between min-h-[240px] hover:bg-[#141414] transition-all duration-300 group"
+    }
+  },
+  "components": {
+    "header": {
+      "classes": "sticky top-0 z-50 bg-[#050505]/80 backdrop-blur-xl border-b border-[#262626] py-4",
+      "logo": "flex items-center gap-3 text-white font-black tracking-tighter text-2xl uppercase font-sans"
+    },
+    "filters": {
+      "container": "flex flex-wrap gap-3 my-8",
+      "button_base": "px-4 py-2 text-xs font-mono uppercase tracking-widest border transition-all duration-200 cursor-pointer",
+      "button_active": "bg-[#FF3300] text-white border-[#FF3300]",
+      "button_inactive": "text-[#A3A3A3] border-[#262626] hover:text-white hover:border-[#737373]"
+    },
+    "card": {
+      "meta_header": "flex justify-between items-start mb-4",
+      "source": "text-xs font-mono text-[#A3A3A3] uppercase tracking-wider",
+      "time": "text-xs font-mono text-[#737373]",
+      "footer": "mt-6 flex justify-between items-end gap-4",
+      "tags_container": "flex flex-wrap gap-2",
+      "tag_base": "px-2 py-1 text-[9px] uppercase tracking-[0.2em] font-mono border bg-transparent",
+      "link_icon": "text-[#737373] group-hover:text-[#FF3300] transition-colors duration-200"
+    }
+  },
+  "media": {
+    "background_image": "https://static.prod-images.emergentagent.com/jobs/05ef6063-4212-4182-af0a-e1649a18cd5d/images/97e6d513e6dd7c255d44dbd4144e0a59ee37a22a036c784da8a25446968071c6.png",
+    "background_overlay": "fixed inset-0 bg-[#050505]/95 z-[-1] pointer-events-none",
+    "logo_icon": "lucide:Radar"
+  },
+  "testing": {
+    "required_attributes": [
+      "data-testid=\"filter-btn-all\"",
+      "data-testid=\"filter-btn-iran\"",
+      "data-testid=\"filter-btn-war\"",
+      "data-testid=\"filter-btn-nuclear\"",
+      "data-testid=\"filter-btn-diplomacy\"",
+      "data-testid=\"news-card\"",
+      "data-testid=\"news-card-title\"",
+      "data-testid=\"news-card-link\""
+    ]
+  },
+  "instructions_to_main_agent": [
+    "TECH STACK: FastAPI (backend) + React/Tailwind (frontend).",
+    "BACKEND: Create a SQLite db with table `news_items` (title, url, source, published_at, summary, tags, item_type). Create POST `/api/news` to save items and GET `/api/news` to fetch them.",
+    "FRONTEND: Import 'Chivo', 'IBM Plex Sans', and 'JetBrains Mono' from Google Fonts in index.html.",
+    "Use Lucide-react for icons (Radar for the logo, ArrowUpRight for the card external links).",
+    "LAYOUT: Apply the 'Control Room' grid. The cards container should have top and left borders, and each card has right and bottom borders to create a seamless technical grid. DO NOT use rounded corners or gaps between cards.",
+    "BACKGROUND: Use the provided background_image with a fixed 95% opacity black overlay to give a very subtle tactical map texture to the entire app.",
+    "CARDS: Title should transition to accent color (#FF3300) on group-hover. The external link icon should also glow/turn red on hover.",
+    "TAGS: Tags on cards should match the specified colors in the JSON. If a tag is 'war', use border-[#FF3300] and text-[#FF3300].",
+    "TESTING: Add the specified data-testid attributes to all interactive elements."
+  ]
+}
