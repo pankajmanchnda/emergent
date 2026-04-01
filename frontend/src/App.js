@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import axios from "axios";
-import { Radar, ArrowUpRight, Loader2, Radio, Youtube, Rss } from "lucide-react";
+import { Radar, ArrowUpRight, Loader2, Radio, Youtube, Rss, RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -14,6 +14,10 @@ const getTagClass = (tag) => {
   if (tagLower === 'nuclear') return 'tag-nuclear';
   if (tagLower === 'diplomacy') return 'tag-diplomacy';
   if (tagLower === 'iran') return 'tag-iran';
+  if (tagLower === 'israel') return 'tag-israel';
+  if (tagLower === 'military') return 'tag-military';
+  if (tagLower === 'sanctions') return 'tag-sanctions';
+  if (tagLower === 'us') return 'tag-us';
   return 'tag-default';
 };
 
@@ -100,11 +104,36 @@ const FilterButton = ({ label, isActive, onClick, testId }) => {
   );
 };
 
+// Refresh Button Component
+const RefreshButton = ({ onClick, isRefreshing, lastResult }) => {
+  return (
+    <div className="refresh-container">
+      <button
+        className={`refresh-btn ${isRefreshing ? 'refreshing' : ''}`}
+        onClick={onClick}
+        disabled={isRefreshing}
+        data-testid="refresh-btn"
+      >
+        <RefreshCw size={16} className={isRefreshing ? 'spin' : ''} />
+        <span>{isRefreshing ? 'Fetching YouTube...' : 'Refresh Feed'}</span>
+      </button>
+      {lastResult && (
+        <div className={`refresh-result ${lastResult.success ? 'success' : 'error'}`}>
+          {lastResult.success ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+          <span>{lastResult.message}</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Main Dashboard Component
 const Dashboard = () => {
   const [newsItems, setNewsItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshResult, setRefreshResult] = useState(null);
 
   const filters = [
     { key: 'all', label: 'All' },
@@ -135,6 +164,31 @@ const Dashboard = () => {
     setActiveFilter(filterKey);
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    setRefreshResult(null);
+    
+    try {
+      const response = await axios.post(`${API}/news/refresh`);
+      setRefreshResult({
+        success: true,
+        message: `Added ${response.data.new_items} new items`
+      });
+      // Refresh the news list
+      await fetchNews();
+    } catch (error) {
+      console.error('Error refreshing news:', error);
+      setRefreshResult({
+        success: false,
+        message: error.response?.data?.detail || 'Failed to refresh'
+      });
+    } finally {
+      setIsRefreshing(false);
+      // Clear result after 5 seconds
+      setTimeout(() => setRefreshResult(null), 5000);
+    }
+  };
+
   return (
     <div className="app-container" data-testid="dashboard">
       {/* Background layers */}
@@ -148,11 +202,13 @@ const Dashboard = () => {
             <Radar className="logo-icon" size={28} />
             <span>Iran War Monitor</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Radio size={12} className="text-[#10B981] animate-pulse" />
-            <span className="font-mono text-xs text-[#737373] uppercase tracking-wider">
-              Live Feed
-            </span>
+          <div className="header-right">
+            <div className="live-indicator">
+              <Radio size={12} className="text-[#10B981] animate-pulse" />
+              <span className="font-mono text-xs text-[#737373] uppercase tracking-wider">
+                Live Feed
+              </span>
+            </div>
           </div>
         </div>
       </header>
@@ -169,19 +225,33 @@ const Dashboard = () => {
             <span>Filter:</span>
             <span className="stat-value uppercase">{activeFilter}</span>
           </div>
+          <div className="stat-item">
+            <span>Sources:</span>
+            <span className="stat-value">9 Channels</span>
+          </div>
         </div>
 
-        {/* Filters */}
-        <div className="filters-container">
-          {filters.map((filter) => (
-            <FilterButton
-              key={filter.key}
-              label={filter.label}
-              isActive={activeFilter === filter.key}
-              onClick={() => handleFilterClick(filter.key)}
-              testId={`filter-btn-${filter.key}`}
-            />
-          ))}
+        {/* Controls Row */}
+        <div className="controls-row">
+          {/* Filters */}
+          <div className="filters-container">
+            {filters.map((filter) => (
+              <FilterButton
+                key={filter.key}
+                label={filter.label}
+                isActive={activeFilter === filter.key}
+                onClick={() => handleFilterClick(filter.key)}
+                testId={`filter-btn-${filter.key}`}
+              />
+            ))}
+          </div>
+
+          {/* Refresh Button */}
+          <RefreshButton 
+            onClick={handleRefresh}
+            isRefreshing={isRefreshing}
+            lastResult={refreshResult}
+          />
         </div>
 
         {/* News Grid */}
@@ -197,7 +267,7 @@ const Dashboard = () => {
               <p className="empty-text">
                 {activeFilter !== 'all' 
                   ? `No items found with tag "${activeFilter}"`
-                  : 'No news items have been added yet'}
+                  : 'Click "Refresh Feed" to fetch latest Iran war news from YouTube'}
               </p>
             </div>
           ) : (

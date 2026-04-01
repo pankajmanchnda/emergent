@@ -48,6 +48,12 @@ class NewsItem(BaseModel):
     item_type: str = "rss"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+class RefreshResponse(BaseModel):
+    success: bool
+    message: str
+    new_items: int
+    total_fetched: int
+
 class StatusCheck(BaseModel):
     model_config = ConfigDict(extra="ignore")
     
@@ -63,16 +69,13 @@ class StatusCheckCreate(BaseModel):
 @api_router.post("/news", response_model=NewsItem)
 async def create_news_item(input: NewsItemCreate):
     """Create a new news item"""
-    # Create news item with defaults
     news_dict = input.model_dump()
     
-    # Set published_at to now if not provided
     if news_dict.get('published_at') is None:
         news_dict['published_at'] = datetime.now(timezone.utc)
     
     news_obj = NewsItem(**news_dict)
     
-    # Convert to dict and serialize datetimes for MongoDB
     doc = news_obj.model_dump()
     doc['published_at'] = doc['published_at'].isoformat()
     doc['created_at'] = doc['created_at'].isoformat()
@@ -86,13 +89,10 @@ async def get_news_items(tag: Optional[str] = None):
     """Get all news items, optionally filtered by tag, sorted newest first"""
     query = {}
     if tag and tag.lower() != 'all':
-        # Case-insensitive tag search
         query = {"tags": {"$regex": f"^{tag}$", "$options": "i"}}
     
-    # Exclude MongoDB's _id field and sort by published_at descending
     news_items = await db.news_items.find(query, {"_id": 0}).sort("published_at", -1).to_list(1000)
     
-    # Convert ISO string timestamps back to datetime objects
     for item in news_items:
         if isinstance(item.get('published_at'), str):
             item['published_at'] = datetime.fromisoformat(item['published_at'])
@@ -109,6 +109,58 @@ async def delete_news_item(news_id: str):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="News item not found")
     return {"message": "News item deleted"}
+
+
+@api_router.post("/news/refresh", response_model=RefreshResponse)
+async def refresh_youtube_news():
+    """Fetch latest Iran war news from YouTube channels"""
+    try:
+        from youtube_service import fetch_all_iran_news
+        
+        # Fetch new videos
+        videos = await fetch_all_iran_news()
+        
+        if not videos:
+            return RefreshResponse(
+                success=True,
+                message="No new Iran war videos found in the last 24 hours",
+                new_items=0,
+                total_fetched=0
+            )
+        
+        # Check for duplicates and insert new items
+        new_count = 0
+        for video in videos:
+            # Check if URL already exists
+            existing = await db.news_items.find_one({"url": video['url']})
+            if not existing:
+                news_obj = NewsItem(
+                    title=video['title'],
+                    url=video['url'],
+                    source=video['source'],
+                    published_at=datetime.fromisoformat(video['published_at'].replace('Z', '+00:00')),
+                    summary=video.get('summary', ''),
+                    tags=video.get('tags', ['Iran']),
+                    item_type='youtube'
+                )
+                
+                doc = news_obj.model_dump()
+                doc['published_at'] = doc['published_at'].isoformat()
+                doc['created_at'] = doc['created_at'].isoformat()
+                
+                await db.news_items.insert_one(doc)
+                new_count += 1
+        
+        return RefreshResponse(
+            success=True,
+            message=f"Successfully fetched {len(videos)} videos, added {new_count} new items",
+            new_items=new_count,
+            total_fetched=len(videos)
+        )
+        
+    except Exception as e:
+        logger.error(f"Refresh error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Root route
