@@ -1,6 +1,7 @@
 """
 YouTube News Fetcher Service
 Fetches latest Iran war related videos from specified YouTube channels
+Uses playlistItems API instead of search to avoid API restrictions
 """
 import os
 from datetime import datetime, timezone, timedelta
@@ -13,17 +14,18 @@ import re
 
 logger = logging.getLogger(__name__)
 
-# YouTube channel mappings (handle -> channel ID)
-CHANNEL_HANDLES = {
-    "FoxNews": "UCXIJgqnII2ZOINSWNOGFThA",
-    "abcnews": "UCBi2mrWuNuyYy4gbM6fU18Q",
-    "ThinkSchool": "UCvHnbCaTpXvLXSw8Oy6bkAA",
-    "THECHANAKYADIALOGUESHINDI": "UCqRPk7BdTCNXpnzNl0L0K2w",
-    "ThinkSchool_Hindi": "UCrG2Z0ushe_xG-adCDXSe7Q",
-    "Firstpost": "UClLTa71UCXguBxiSZ5o7-EA",
-    "aljazeeraenglish": "UCNye-wNBqNL5ZzHSJj3l8Bg",
-    "WION": "UC_gUM8rL-Lrg6O3adPW9K1g",
-    "SkyNewsAustralia": "UC-4K_bfuNmkqQcIgKtCBG0Q"
+# YouTube channel mappings (handle -> uploads playlist ID)
+# Uploads playlist ID is "UU" + channel_id[2:]
+CHANNEL_INFO = {
+    "Fox News": {"channel_id": "UCXIJgqnII2ZOINSWNOGFThA", "uploads_playlist": "UUXIJgqnII2ZOINSWNOGFThA"},
+    "ABC News": {"channel_id": "UCBi2mrWuNuyYy4gbM6fU18Q", "uploads_playlist": "UUBi2mrWuNuyYy4gbM6fU18Q"},
+    "Think School": {"channel_id": "UCvHnbCaTpXvLXSw8Oy6bkAA", "uploads_playlist": "UUvHnbCaTpXvLXSw8Oy6bkAA"},
+    "Chanakya Dialogues": {"channel_id": "UCqRPk7BdTCNXpnzNl0L0K2w", "uploads_playlist": "UUqRPk7BdTCNXpnzNl0L0K2w"},
+    "Think School Hindi": {"channel_id": "UCrG2Z0ushe_xG-adCDXSe7Q", "uploads_playlist": "UUrG2Z0ushe_xG-adCDXSe7Q"},
+    "Firstpost": {"channel_id": "UClLTa71UCXguBxiSZ5o7-EA", "uploads_playlist": "UUlLTa71UCXguBxiSZ5o7-EA"},
+    "Al Jazeera": {"channel_id": "UCNye-wNBqNL5ZzHSJj3l8Bg", "uploads_playlist": "UUNye-wNBqNL5ZzHSJj3l8Bg"},
+    "WION": {"channel_id": "UC_gUM8rL-Lrg6O3adPW9K1g", "uploads_playlist": "UU_gUM8rL-Lrg6O3adPW9K1g"},
+    "Sky News Australia": {"channel_id": "UC-4K_bfuNmkqQcIgKtCBG0Q", "uploads_playlist": "UU-4K_bfuNmkqQcIgKtCBG0Q"}
 }
 
 # Iran war related keywords for filtering
@@ -51,28 +53,33 @@ def is_iran_related(title: str, description: str) -> bool:
     return any(keyword in text for keyword in IRAN_KEYWORDS)
 
 
-async def fetch_channel_videos(channel_id: str, channel_name: str, max_results: int = 10) -> List[Dict]:
-    """Fetch latest videos from a YouTube channel"""
+async def fetch_channel_videos(channel_name: str, channel_info: dict, max_results: int = 15) -> List[Dict]:
+    """Fetch latest videos from a YouTube channel using playlistItems API"""
     try:
         youtube = get_youtube_service()
         
-        # Calculate date 24 hours ago
-        published_after = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        # Calculate date 48 hours ago (expanded window for more results)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=48)
         
-        # Search for recent videos from channel
-        search_response = youtube.search().list(
-            channelId=channel_id,
-            part='snippet',
-            order='date',
-            type='video',
-            publishedAfter=published_after,
+        # Get videos from uploads playlist
+        playlist_response = youtube.playlistItems().list(
+            playlistId=channel_info['uploads_playlist'],
+            part='snippet,contentDetails',
             maxResults=max_results
         ).execute()
         
         videos = []
-        for item in search_response.get('items', []):
+        for item in playlist_response.get('items', []):
             snippet = item['snippet']
-            video_id = item['id']['videoId']
+            video_id = snippet['resourceId']['videoId']
+            published_at = snippet['publishedAt']
+            
+            # Parse publish date
+            pub_date = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
+            
+            # Only include videos from last 48 hours
+            if pub_date < cutoff_time:
+                continue
             
             video_data = {
                 'video_id': video_id,
@@ -80,12 +87,13 @@ async def fetch_channel_videos(channel_id: str, channel_name: str, max_results: 
                 'description': snippet.get('description', ''),
                 'channel_name': channel_name,
                 'channel_title': snippet['channelTitle'],
-                'published_at': snippet['publishedAt'],
-                'thumbnail': snippet['thumbnails'].get('high', {}).get('url', ''),
+                'published_at': published_at,
+                'thumbnail': snippet['thumbnails'].get('high', snippet['thumbnails'].get('default', {})).get('url', ''),
                 'url': f"https://www.youtube.com/watch?v={video_id}"
             }
             videos.append(video_data)
         
+        logger.info(f"Found {len(videos)} recent videos from {channel_name}")
         return videos
         
     except HttpError as e:
@@ -174,10 +182,12 @@ async def fetch_all_iran_news() -> List[Dict]:
     """Fetch and process Iran war news from all configured channels"""
     all_videos = []
     
-    for handle, channel_id in CHANNEL_HANDLES.items():
-        logger.info(f"Fetching videos from {handle}...")
-        videos = await fetch_channel_videos(channel_id, handle)
+    for channel_name, channel_info in CHANNEL_INFO.items():
+        logger.info(f"Fetching videos from {channel_name}...")
+        videos = await fetch_channel_videos(channel_name, channel_info)
         all_videos.extend(videos)
+    
+    logger.info(f"Total videos fetched: {len(all_videos)}")
     
     # Filter for Iran-related content
     iran_videos = await filter_iran_videos(all_videos)
